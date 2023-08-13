@@ -1,0 +1,6 @@
+server:
+  port: 8081
+
+bot:
+  botToken: 6225230464:AAEap_rrqxYz80cKZXKS0ZynpF1V4sXjcxQ
+  botUsername: ssoraka_bot
