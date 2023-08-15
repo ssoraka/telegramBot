@@ -1,10 +1,10 @@
 package ru.dima.controller;
 
+import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendSticker;
-import org.telegram.telegrambots.meta.api.methods.stickers.GetStickerSet;
 import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
@@ -13,7 +13,6 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMar
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
-import org.telegram.telegrambots.meta.api.objects.stickers.Sticker;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import ru.dima.configuration.BotProperties;
 import ru.dima.util.Words;
@@ -21,9 +20,9 @@ import ru.dima.util.Words;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Log4j2
 @Component
 public class TelegramBot extends TelegramLongPollingBot {
     private static final String YES = "да";
@@ -71,7 +70,7 @@ public class TelegramBot extends TelegramLongPollingBot {
             //Получаем текст сообщения пользователя, отправляем в написанный нами обработчик
             String response = parseMessage(inMess.getText());
 
-            System.out.println(String.format("%s %s: %s", inMess.getFrom().getUserName(), inMess.getFrom().getFirstName(), inMess.getText()));
+            log.info("{} {}: {}", inMess.getFrom().getUserName(), inMess.getFrom().getFirstName(), inMess.getText());
 
             if (inMess.getText().equals(STOP)) {
                 chats.remove(chatId);
@@ -137,9 +136,9 @@ public class TelegramBot extends TelegramLongPollingBot {
                     .build();
             try {
                 execute(message);
-                System.out.println(String.format("Уведомил %s, что он(а) %s", e.getValue(), word));
+                log.info("Уведомил {}, что он(а) {}", e.getValue(), word);
             } catch (TelegramApiException ex) {
-                System.out.println(String.format("%s-%s тебя заблочил: \n%s", e.getValue(), Words.randomBadWord(), ex.getMessage()));
+                log.info("{}-{} тебя заблочил: \n{}", e.getValue(), Words.randomBadWord(), ex.getMessage());
                 ex.printStackTrace();
                 delete.add(e.getKey());
             }
