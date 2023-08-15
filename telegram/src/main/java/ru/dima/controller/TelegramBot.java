@@ -13,12 +13,15 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMar
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
+import org.telegram.telegrambots.meta.api.objects.stickers.Sticker;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import ru.dima.configuration.BotProperties;
+import ru.dima.util.Words;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
@@ -68,6 +71,8 @@ public class TelegramBot extends TelegramLongPollingBot {
             //Получаем текст сообщения пользователя, отправляем в написанный нами обработчик
             String response = parseMessage(inMess.getText());
 
+            System.out.println(String.format("%s %s: %s", inMess.getFrom().getUserName(), inMess.getFrom().getFirstName(), inMess.getText()));
+
             if (inMess.getText().equals(STOP)) {
                 chats.remove(chatId);
             } else {
@@ -95,7 +100,7 @@ public class TelegramBot extends TelegramLongPollingBot {
             try {
                 execute(SendSticker.builder()
                         .chatId(update.getCallbackQuery().getMessage().getChatId())
-                        .sticker(new InputFile("CAACAgIAAxkBAAIC5mTY6hD1yq5hm5B8DvMsoQZThGXuAAJ9FgACMPYAAUgXnlYRZQ8jSzAE"))
+                        .sticker(new InputFile(Words.randomGachiStikerFileId()))
                         .build());
             } catch (TelegramApiException e) {
                 e.printStackTrace();
@@ -122,17 +127,19 @@ public class TelegramBot extends TelegramLongPollingBot {
         List<String> delete = new ArrayList<>();
 
         for (Map.Entry<String, String> e : chats.entrySet()) {
+            String word = Words.randomBadWord();
+
             SendMessage message = SendMessage.builder()
                     .chatId(e.getKey())
-                    .text(e.getValue() + " лох!")
+                    .text(String.format("%s %s!",e.getValue(), word))
                     .replyMarkup(inline())
                     .protectContent(true)
                     .build();
             try {
                 execute(message);
-                System.out.println(String.format("Уведомил %s", e.getValue()));
+                System.out.println(String.format("Уведомил %s, что он(а) %s", e.getValue(), word));
             } catch (TelegramApiException ex) {
-                System.out.println(String.format("%s тебя заблочил: \n%s", e.getValue(), ex.getMessage()));
+                System.out.println(String.format("%s-%s тебя заблочил: \n%s", e.getValue(), Words.randomBadWord(), ex.getMessage()));
                 ex.printStackTrace();
                 delete.add(e.getKey());
             }
