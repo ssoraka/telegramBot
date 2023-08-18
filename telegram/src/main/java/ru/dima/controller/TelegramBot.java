@@ -9,6 +9,7 @@ import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboard;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
@@ -17,17 +18,23 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import ru.dima.configuration.BotProperties;
 import ru.dima.util.Words;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.TextStyle;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Log4j2
 @Component
 public class TelegramBot extends TelegramLongPollingBot {
+    DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd-MM-yyyy");
     private static final String YES = "да";
     private static final String NO = "нет";
     private static final String STOP = "прекрати меня спамить";
+    private static final String CALENDAR = "/calendar";
 
     private final String botUsername;
     ReplyKeyboardMarkup replyKeyboardMarkup;
@@ -56,6 +63,7 @@ public class TelegramBot extends TelegramLongPollingBot {
         keyboardRow.add(new KeyboardButton(YES));
         keyboardRow.add(new KeyboardButton(NO));
         keyboardRow.add(new KeyboardButton(STOP));
+        keyboardRow.add(new KeyboardButton(CALENDAR));
         //добавляем лист с одним рядом кнопок в главный объект
         replyKeyboardMarkup.setKeyboard(keyboardRows);
     }
@@ -68,7 +76,7 @@ public class TelegramBot extends TelegramLongPollingBot {
             //Достаем из inMess id чата пользователя
             String chatId = inMess.getChatId().toString();
             //Получаем текст сообщения пользователя, отправляем в написанный нами обработчик
-            String response = parseMessage(inMess.getText());
+            SendMessage message = parseMessage(chatId, inMess.getText());
 
             log.info("{} {}: {}", inMess.getFrom().getUserName(), inMess.getFrom().getFirstName(), inMess.getText());
 
@@ -77,15 +85,6 @@ public class TelegramBot extends TelegramLongPollingBot {
             } else {
                 chats.put(chatId, inMess.getFrom().getUserName());
             }
-
-            //Добавляем в наше сообщение id чата а также наш ответ
-            SendMessage message = SendMessage.builder()
-                    .chatId(chatId)
-                    .text(response)
-                    .replyMarkup(replyKeyboardMarkup)
-                    .protectContent(true)
-                    .build();
-
 
             //Отправка в чат
             try {
@@ -96,13 +95,25 @@ public class TelegramBot extends TelegramLongPollingBot {
 
 
         } else if (update.hasCallbackQuery()) {
-            try {
-                execute(SendSticker.builder()
-                        .chatId(update.getCallbackQuery().getMessage().getChatId())
-                        .sticker(new InputFile(Words.randomGachiStikerFileId()))
-                        .build());
-            } catch (TelegramApiException e) {
-                e.printStackTrace();
+            if (update.getCallbackQuery().getData().matches("\\d{2}-\\d{2}-\\d{4}")) {
+                try {
+                    execute(SendMessage.builder()
+                            .chatId(update.getCallbackQuery().getMessage().getChatId())
+                            .text(update.getCallbackQuery().getData())
+                            .build());
+                } catch (TelegramApiException e) {
+                    e.printStackTrace();
+                }
+            } else {
+
+                try {
+                    execute(SendSticker.builder()
+                            .chatId(update.getCallbackQuery().getMessage().getChatId())
+                            .sticker(new InputFile(Words.randomGachiStikerFileId()))
+                            .build());
+                } catch (TelegramApiException e) {
+                    e.printStackTrace();
+                }
             }
         }
 
@@ -121,6 +132,68 @@ public class TelegramBot extends TelegramLongPollingBot {
         markupKeyboard.setKeyboard(buttons);
         return markupKeyboard;
     }
+
+    private InlineKeyboardMarkup calendar() {
+        List<List<InlineKeyboardButton>> buttons = new ArrayList<>();
+        header(buttons);
+
+        LocalDate startOfMonth = LocalDate.now().minusDays(LocalDate.now().getDayOfMonth());
+
+        List<InlineKeyboardButton> button = new ArrayList<>();
+        buttons.add(button);
+
+        for (int i = 0; i < startOfMonth.getDayOfWeek().getValue(); i++) {
+            button.add(InlineKeyboardButton.builder()
+                    .text(" ")
+                    .callbackData("empty")
+                    .build());
+        }
+
+        for (int i = 1; i <= startOfMonth.getMonth().maxLength(); i++) {
+            if (button.size() == 7) {
+                button = new ArrayList<>();
+                buttons.add(button);
+            }
+
+            LocalDate day = startOfMonth.plusDays(i);
+
+            button.add(InlineKeyboardButton.builder()
+                    .text("" + i)
+                    .callbackData(startOfMonth.plusDays(i).format(DATE_FORMATTER))
+                    .build());
+        }
+
+        while (button.size() < 7) {
+            button.add(InlineKeyboardButton.builder()
+                    .text(" ")
+                    .callbackData("empty")
+                    .build());
+        }
+
+
+        InlineKeyboardMarkup markupKeyboard = new InlineKeyboardMarkup();
+        markupKeyboard.setKeyboard(buttons);
+        return markupKeyboard;
+    }
+
+    private void header(List<List<InlineKeyboardButton>> buttons) {
+        List<InlineKeyboardButton> button = new ArrayList<>();
+        buttons.add(button);
+        button.add(InlineKeyboardButton.builder()
+                .text("месяц " + LocalDate.now().getMonth().getDisplayName(TextStyle.FULL, Locale.getDefault()))
+                .callbackData("1")
+                .build());
+
+        button = new ArrayList<>();
+        buttons.add(button);
+        for (String s : new String[]{"П", "В", "С", "Ч", "П", "С", "В"}) {
+            button.add(InlineKeyboardButton.builder()
+                    .text(s)
+                    .callbackData("1")
+                    .build());
+        }
+    }
+
 
     public void send() {
         List<String> delete = new ArrayList<>();
@@ -146,11 +219,12 @@ public class TelegramBot extends TelegramLongPollingBot {
         delete.forEach(key -> chats.remove(key));
     }
 
-    public String parseMessage(String textMsg) {
+    public SendMessage parseMessage(String chatId, String textMsg) {
         String response;
+        ReplyKeyboard replyKeyboard = replyKeyboardMarkup;
 
         //Сравниваем текст пользователя с нашими командами, на основе этого формируем ответ
-        if(textMsg.equals("/start"))
+        if (textMsg.equals("/start"))
             response = "Привет.";
         else if(textMsg.equals(NO))
             response = "Пидора ответ!";
@@ -158,10 +232,18 @@ public class TelegramBot extends TelegramLongPollingBot {
             response = "Пизда!";
         else if(textMsg.equals(STOP))
             response = "Сорян, умолк.";
-        else
+        else if(textMsg.equals(CALENDAR)) {
+            response = "Календарь";
+            replyKeyboard = calendar();
+        } else
             response = "Что ты несешь?";
 
-        return response;
+        return SendMessage.builder()
+                .chatId(chatId)
+                .text(response)
+                .replyMarkup(replyKeyboard)
+                .protectContent(true)
+                .build();
     }
 
     @Override
