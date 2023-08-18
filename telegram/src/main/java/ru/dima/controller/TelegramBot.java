@@ -5,6 +5,8 @@ import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendSticker;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageReplyMarkup;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
@@ -95,7 +97,20 @@ public class TelegramBot extends TelegramLongPollingBot {
 
 
         } else if (update.hasCallbackQuery()) {
-            if (update.getCallbackQuery().getData().matches("\\d{2}-\\d{2}-\\d{4}")) {
+            if (update.getCallbackQuery().getData().matches(CALENDAR + "/\\d{2}-\\d{2}-\\d{4}")) {
+                String dateText = update.getCallbackQuery().getData().replace(CALENDAR + "/", "");
+                LocalDate date = LocalDate.parse(dateText, DATE_FORMATTER);
+
+                try {
+                    execute(EditMessageReplyMarkup.builder()
+                            .chatId(update.getCallbackQuery().getMessage().getChatId())
+                            .messageId(update.getCallbackQuery().getMessage().getMessageId())
+                            .replyMarkup(calendar(date))
+                            .build());
+                } catch (TelegramApiException e) {
+                    e.printStackTrace();
+                }
+            } else if (update.getCallbackQuery().getData().matches("\\d{2}-\\d{2}-\\d{4}")) {
                 try {
                     execute(SendMessage.builder()
                             .chatId(update.getCallbackQuery().getMessage().getChatId())
@@ -134,22 +149,26 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
     private InlineKeyboardMarkup calendar() {
+        return calendar(LocalDate.now());
+    }
+    private InlineKeyboardMarkup calendar(LocalDate date) {
         List<List<InlineKeyboardButton>> buttons = new ArrayList<>();
-        header(buttons);
+        LocalDate startOfMonth = LocalDate.of(date.getYear(), date.getMonth().getValue(), 1);
 
-        LocalDate startOfMonth = LocalDate.now().minusDays(LocalDate.now().getDayOfMonth());
+
+        header(buttons, startOfMonth);
 
         List<InlineKeyboardButton> button = new ArrayList<>();
         buttons.add(button);
 
-        for (int i = 0; i < startOfMonth.getDayOfWeek().getValue(); i++) {
+        for (int i = 1; i < startOfMonth.getDayOfWeek().getValue(); i++) {
             button.add(InlineKeyboardButton.builder()
                     .text(" ")
                     .callbackData("empty")
                     .build());
         }
 
-        for (int i = 1; i <= startOfMonth.getMonth().maxLength(); i++) {
+        for (int i = 0; i < startOfMonth.getMonth().maxLength(); i++) {
             if (button.size() == 7) {
                 button = new ArrayList<>();
                 buttons.add(button);
@@ -158,7 +177,7 @@ public class TelegramBot extends TelegramLongPollingBot {
             LocalDate day = startOfMonth.plusDays(i);
 
             button.add(InlineKeyboardButton.builder()
-                    .text("" + i)
+                    .text("" + (i + 1))
                     .callbackData(startOfMonth.plusDays(i).format(DATE_FORMATTER))
                     .build());
         }
@@ -176,12 +195,20 @@ public class TelegramBot extends TelegramLongPollingBot {
         return markupKeyboard;
     }
 
-    private void header(List<List<InlineKeyboardButton>> buttons) {
+    private void header(List<List<InlineKeyboardButton>> buttons, LocalDate startOfMonth) {
         List<InlineKeyboardButton> button = new ArrayList<>();
         buttons.add(button);
         button.add(InlineKeyboardButton.builder()
-                .text("месяц " + LocalDate.now().getMonth().getDisplayName(TextStyle.FULL, Locale.getDefault()))
+                .text("<")
+                .callbackData(CALENDAR + "/" + startOfMonth.minusMonths(1).format(DATE_FORMATTER))
+                .build());
+        button.add(InlineKeyboardButton.builder()
+                .text("месяц " + startOfMonth.getMonth().getDisplayName(TextStyle.FULL, Locale.getDefault()))
                 .callbackData("1")
+                .build());
+        button.add(InlineKeyboardButton.builder()
+                .text(">")
+                .callbackData(CALENDAR + "/" + startOfMonth.plusMonths(1).format(DATE_FORMATTER))
                 .build());
 
         button = new ArrayList<>();
