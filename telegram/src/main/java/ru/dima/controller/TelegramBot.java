@@ -129,11 +129,6 @@ public class TelegramBot extends TelegramLongPollingBot {
                             .messageId(update.getCallbackQuery().getMessage().getMessageId())
                             .replyMarkup(dayTable(date))
                             .build());
-
-                    execute(SendMessage.builder()
-                            .chatId(update.getCallbackQuery().getMessage().getChatId())
-                            .text(update.getCallbackQuery().getData())
-                            .build());
                 } else {
                     execute(SendSticker.builder()
                             .chatId(update.getCallbackQuery().getMessage().getChatId())
@@ -227,6 +222,13 @@ public class TelegramBot extends TelegramLongPollingBot {
                     .callbackData(RECORD + "/" + time.plusHours(i).format(DATE_TIME_FORMATTER))
                     .build());
         }
+
+        List<InlineKeyboardButton> button = new ArrayList<>();
+        buttons.add(button);
+        button.add(InlineKeyboardButton.builder()
+                .text("назад")
+                .callbackData(CALENDAR + "/" + date.format(DATE_FORMATTER))
+                .build());
 
         InlineKeyboardMarkup markupKeyboard = new InlineKeyboardMarkup();
         markupKeyboard.setKeyboard(buttons);
